@@ -1,5 +1,5 @@
 import { fromBase64 } from "@cosmjs/encoding";
-import { sha256 } from "@noble/hashes/sha256";
+import { createHash } from "crypto";
 import * as secp256k1 from "@noble/secp256k1";
 import { bech32 } from "bech32";
 import { base64PubkeyToAddress } from "../../../index";
@@ -139,8 +139,7 @@ export const newPermit = async (
       "Cannot sign with Keplr - extension not enabled; enable Keplr or change signing mode",
     );
   } else {
-    signature = (
-      //@ts-ignore
+    signature = ( //@ts-ignore
       await window.keplr.signAmino(
         chainId,
         owner,
@@ -268,7 +267,9 @@ const _validate_sig = (permit: Permit): boolean => {
     permit.params.allowed_tokens,
     permit.params.permissions,
   );
-  const messageHash = sha256(serializeStdSignDoc(signDoc));
+  const _sha256 = createHash("sha256");
+
+  const messageHash = _sha256.update(serializeStdSignDoc(signDoc)).digest();
   let sig = secp256k1.Signature.fromCompact(
     fromBase64(permit.signature.signature),
   );

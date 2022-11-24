@@ -5,7 +5,7 @@ import {
   toBase64,
   toHex,
 } from "@cosmjs/encoding";
-import { sha256 } from "@noble/hashes/sha256";
+import { createHash } from "crypto";
 import {
   Coin,
   MauthQuerier,
@@ -640,9 +640,9 @@ export class SecretNetworkClient {
       auth: new AuthQuerier(options.url),
       authz: new AuthzQuerier(options.url),
       bank: new BankQuerier(options.url),
-      compute: new ComputeQuerier(options.url),
-      snip20: new Snip20Querier(options.url),
-      snip721: new Snip721Querier(options.url),
+      compute: new ComputeQuerier(options.url, options.encryptionUtils),
+      snip20: new Snip20Querier(options.url, options.encryptionUtils),
+      snip721: new Snip721Querier(options.url, options.encryptionUtils),
       distribution: new DistributionQuerier(options.url),
       evidence: new EvidenceQuerier(options.url),
       feegrant: new FeegrantQuerier(options.url),
@@ -1022,8 +1022,9 @@ export class SecretNetworkClient {
   ): Promise<TxResponse> {
     const start = Date.now();
 
-    const txhash = toHex(sha256(txBytes)).toUpperCase();
+    const sha256 = createHash("sha256");
 
+    const txhash = toHex(sha256.update(txBytes).digest()).toUpperCase();
     if (!waitForCommit && mode == BroadcastMode.Block) {
       mode = BroadcastMode.Sync;
     }
@@ -1221,21 +1222,21 @@ export class SecretNetworkClient {
     // sleep first because there's no point in checking right after broadcasting
     await sleep(checkIntervalMs / 2);
 
-    while (true) {
-      const result = await this.getTx(txhash);
-
-      if (result) {
-        return result;
+    const fetchResult = async (): Promise<TxResponse | null> => {
+      try {
+        return await this.getTx(txhash);
+      } catch (e) {
+        if (start + timeoutMs < Date.now()) {
+          throw new Error(
+            `Transaction ID ${txhash} was submitted but was not yet found on the chain. You might want to check later or increase broadcastTimeoutMs from '${timeoutMs}'.`,
+          );
+        }
+        await sleep(checkIntervalMs);
+        return await fetchResult();
       }
-
-      if (start + timeoutMs < Date.now()) {
-        throw new Error(
-          `Transaction ID ${txhash} was submitted but was not yet found on the chain. You might want to check later or increase broadcastTimeoutMs from '${timeoutMs}'.`,
-        );
-      }
-
-      await sleep(checkIntervalMs);
-    }
+    };
+    //@ts-ignore
+    return await fetchResult();
   }
 
   public async prepareAndSign(
@@ -1277,9 +1278,9 @@ export class SecretNetworkClient {
 
     return this.broadcastTx(
       txBytes,
-      txOptions?.broadcastTimeoutMs ?? 60_000,
+      txOptions?.broadcastTimeoutMs ?? 120_000,
       txOptions?.broadcastCheckIntervalMs ?? 6_000,
-      txOptions?.broadcastMode ?? BroadcastMode.Block,
+      txOptions?.broadcastMode ?? BroadcastMode.Sync,
       txOptions?.waitForCommit ?? true,
     );
   }
@@ -1525,6 +1526,7 @@ export class SecretNetworkClient {
       auth_info_bytes: signed.auth_info_bytes,
       signatures: [fromBase64(signature.signature)],
     });
+    ``;
   }
 }
 

@@ -38,6 +38,7 @@
     "bip32": "2.0.6",
     "bip39": "3.0.4",
     "cross-fetch": "3.1.5",
+    "crypto-js": "4.1.1",
     "curve25519-js": "0.0.4",
     "is-gzip": "2.0.0",
     "miscreant": "0.3.2",
@@ -46,6 +47,7 @@
     "secure-random": "1.1.2"
   },
   "devDependencies": {
+    "@types/crypto-js": "4.1.1",
     "@types/is-gzip": "2.0.0",
     "@types/jest": "27.4.0",
     "@types/node": "18.8.4",
